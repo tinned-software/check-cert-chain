@@ -1,0 +1,5 @@
+# ignore MACOSX related files
+.DS_Store
+._*
+
+TEMP/
