@@ -2,4 +2,5 @@
 .DS_Store
 ._*
 
-TEMP/
+data-test/
+temp/
