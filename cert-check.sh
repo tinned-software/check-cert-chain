@@ -140,6 +140,8 @@ for FILE in $TEMP_PATH/*; do
 		FILE_PUB_KEY[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -modulus | openssl md5`
 		FILE_HASH[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -hash`
 		FILE_ISSUER_HASH[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -issuer_hash`
+		FILE_SIG_KEY_ID[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -text |grep -A1 "Authority Key Identifier" |grep -v X509 |sed -e 's/^.*keyid://'`
+		FILE_KEY_ID[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -text |grep -A1 "Subject Key Identifier" |grep -v X509 |sed -e 's/^ *//'`
 		FILE_SUBJECT[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -subject | sed 's/^subject= //'`
 		FILE_FINGERPRINT[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -fingerprint`
 		FILE_SERIAL[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -serial | sed 's/^serial= //'`
@@ -165,13 +167,13 @@ done
 for (( i = 0; i < $FLC; i++ )); do
 	if [[ "${FILE_TYPE[$i]}" == "CERT" ]]; then
 		# Check if the certificate is self-signed
-		if [[ "${FILE_ISSUER_HASH[$i]}" == "${FILE_HASH[$i]}" ]]; then
+		if [[ -z "${FILE_SIG_KEY_ID[$i]}" ]] || [[ "${FILE_SIG_KEY_ID[$i]}" == "${FILE_KEY_ID[$i]}" ]]; then
 			FILE_NOTICE[$i]="Self-Signed"
 			continue
 		fi
 		for (( a = 0; a < $FLC; a++ )); do
 			# find matching issuer certificate
-			if [[ "${FILE_ISSUER_HASH[$i]}" == "${FILE_HASH[$a]}" ]]; then
+			if [[ "${FILE_SIG_KEY_ID[$i]}" == "${FILE_KEY_ID[$a]}" ]] && [[ "${FILE_ISSUER_HASH[$i]}" == "${FILE_HASH[$a]}" ]]; then
 				FILE_PARENT[$i]=$a;
 				FILE_CHILDS[$a]="${FILE_CHILDS[$a]} $i "
 			fi
@@ -208,11 +210,12 @@ for (( i = 0; i < $FLC; i++ )); do
 	echo "*** DBG:         public-key: ${FILE_PUB_KEY[$i]}"
 	echo "*** DBG:               hash: ${FILE_HASH[$i]}"
 	echo "*** DBG:        issuer-hash: ${FILE_ISSUER_HASH[$i]}"
+	echo "*** DBG:             key-id: ${FILE_KEY_ID[$i]}"
+	echo "*** DBG:   signature-key-id: ${FILE_SIG_KEY_ID[$i]}"
 	echo "*** DBG:        parent-cert: ${FILE_PARENT[$i]}"
 	echo "*** DBG:        child-certs: ${FILE_CHILDS[$i]}"
 done
 echo "*** DBG:  ROOT_LIST: $ROOT_LIST"
-
 
 
 
@@ -228,6 +231,8 @@ function print_certificates()
 		echo "${INTEND}Certificate file: ${FILE_LIST[$k]} (internal-id: $k)"
 		echo "${INTEND}Certificate serial: ${FILE_SERIAL[$k]} (issuer hash: ${FILE_ISSUER_HASH[$k]})"
 		echo "${INTEND}Certificate subj: ${FILE_SUBJECT[$k]} (hash: ${FILE_HASH[$k]})"
+		echo "${INTEND}Certificate Subject Key Identifier  : ${FILE_KEY_ID[$k]}"
+		echo "${INTEND}Certificate Authority Key Identifier: ${FILE_SIG_KEY_ID[$k]}"
 		if [[ "${KEY_ASSIGNMENT[$k]}" -ne "" ]]; then
 			KI=${KEY_ASSIGNMENT[$k]}
 			echo "${INTEND}***"
