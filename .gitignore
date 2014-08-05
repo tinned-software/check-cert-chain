@@ -2,5 +2,6 @@
 .DS_Store
 ._*
 
-data-test/
-temp/
+data-test*/
+temp*/
+
