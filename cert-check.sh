@@ -143,6 +143,7 @@ for FILE in $TEMP_PATH/*; do
 		FILE_SIG_KEY_ID[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -text |grep -A1 "Authority Key Identifier" |grep -v X509 |sed -e 's/^.*keyid://'`
 		FILE_KEY_ID[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -text |grep -A1 "Subject Key Identifier" |grep -v X509 |sed -e 's/^ *//'`
 		FILE_SUBJECT[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -subject | sed 's/^subject= //'`
+		FILE_ISSUER[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -issuer | sed 's/^issuer= //'`
 		FILE_FINGERPRINT[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -fingerprint`
 		FILE_SERIAL[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -serial | sed 's/^serial= //'`
 		FILE_DATE_START[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -startdate | sed 's/^notBefore= //'`
@@ -209,6 +210,7 @@ for (( i = 0; i < $FLC; i++ )); do
 	echo "*** DBG:           notAfter: ${FILE_DATE_END[$i]}"
 	echo "*** DBG:         public-key: ${FILE_PUB_KEY[$i]}"
 	echo "*** DBG:               hash: ${FILE_HASH[$i]}"
+	echo "*** DBG:             issuer: ${FILE_ISSUER[$i]}"
 	echo "*** DBG:        issuer-hash: ${FILE_ISSUER_HASH[$i]}"
 	echo "*** DBG:             key-id: ${FILE_KEY_ID[$i]}"
 	echo "*** DBG:   signature-key-id: ${FILE_SIG_KEY_ID[$i]}"
@@ -228,17 +230,19 @@ function print_certificates()
 	ITEM_LIST=$@
 
 	for k in $ITEM_LIST; do
-		echo "${INTEND}Certificate file: ${FILE_LIST[$k]} (internal-id: $k)"
-		echo "${INTEND}Certificate serial: ${FILE_SERIAL[$k]} (issuer hash: ${FILE_ISSUER_HASH[$k]})"
-		echo "${INTEND}Certificate subj: ${FILE_SUBJECT[$k]} (hash: ${FILE_HASH[$k]})"
-		echo "${INTEND}Certificate Subject Key Identifier  : ${FILE_KEY_ID[$k]}"
-		echo "${INTEND}Certificate Authority Key Identifier: ${FILE_SIG_KEY_ID[$k]}"
+		echo "${INTEND}Certificate file          : ${FILE_LIST[$k]} (internal-id: $k)"
+		echo "${INTEND}Certificate subject       : ${FILE_SUBJECT[$k]} (hash: ${FILE_HASH[$k]})"
+		echo "${INTEND}Certificate serial        : ${FILE_SERIAL[$k]} "
+		echo "${INTEND}Certificate Key Identifier: ${FILE_KEY_ID[$k]}"
+		echo "${INTEND}Issuer Subject            : ${FILE_ISSUER[$k]} (issuer hash: ${FILE_ISSUER_HASH[$k]})"
+		echo "${INTEND}Issuer Key Identifier     : ${FILE_SIG_KEY_ID[$k]}"
+		echo "${INTEND}*** DBG: parent-cert      : ${FILE_PARENT[$k]} / child-certs: ${FILE_CHILDS[$k]}"
 		if [[ "${KEY_ASSIGNMENT[$k]}" -ne "" ]]; then
 			KI=${KEY_ASSIGNMENT[$k]}
 			echo "${INTEND}***"
-			echo "${INTEND}*** Matching Key: ${FILE_LIST[$KI]}"
+			echo "${INTEND}*** Matching Key          : ${FILE_LIST[$KI]}"
+			echo "${INTEND}*** DBG: key-parent-cert  : $k"
 		fi
-		echo "${INTEND}*** DBG: parent-cert: ${FILE_PARENT[$k]} / child-certs: ${FILE_CHILDS[$k]}"
 		echo ""
 
 		print_certificates "$INTEND    " ${FILE_CHILDS[$k]}
