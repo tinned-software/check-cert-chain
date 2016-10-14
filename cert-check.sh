@@ -15,7 +15,8 @@ SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 #
 INPUT_FILE_LIST=''
 HELP=0
-while [ $# -gt 0 ]; do
+while [ $# -gt 0 ]
+do
 	case $1 in
 		# General parameter
 		-h|--help)
@@ -50,7 +51,8 @@ while [ $# -gt 0 ]; do
 
 		# Unnamed parameter        
 		*)
-			if [[ -f $1 ]]; then
+			if [[ -f $1 ]]
+			then
 				INPUT_FILE_LIST="$INPUT_FILE_LIST $1"
 			else
 				echo "Unknown option '$1'"
@@ -58,7 +60,7 @@ while [ $# -gt 0 ]; do
 			fi
 			shift
 			;;
-    esac
+	esac
 done
 
 
@@ -77,22 +79,23 @@ fi
 
 
 # show help message
-if [ "$HELP" -eq "1" ]; then
-    echo 
-    echo "This script will accept a list of files in PEM format. These files "
-    echo "will be analysed to draw the certificate chain as well as it "
-    echo "identifies which key is assigned to which certificate."
-    echo 
-    echo "Usage: `basename $0` [-hv] [--config filename.conf] certificate-file1.pem ... certificate-fileN.pem "
-    echo "  -h  --help              Print this usage and exit"
-    echo "  -v  --version           Print version information and exit"
-    echo "      --temp-path         Specify a directory where the script can create files"
-    echo "                          This directory fill later contain the splitted PEM files with the"
-    echo "                          different certificates and keys seperated into single files"
-    echo "      --chain-for-key     Create the chain for the key (key needs to be provided in the files)"
-    echo "      --save-chain        Save the chain files as key, certificate and chain"
-    echo 
-    exit 1
+if [ "$HELP" -eq "1" ]
+then
+	echo 
+	echo "This script will accept a list of files in PEM format. These files "
+	echo "will be analysed to draw the certificate chain as well as it "
+	echo "identifies which key is assigned to which certificate."
+	echo 
+	echo "Usage: `basename $0` [-hv] [--temp-path /path/to/temp/director/] [--chain-for-key cert-key.key] [--save-chain] cert-file1.pem ... cert-fileN.pem "
+	echo "  -h  --help              Print this usage and exit"
+	echo "  -v  --version           Print version information and exit"
+	echo "      --temp-path         Specify a directory where the script can create files"
+	echo "                          This directory fill later contain the splitted PEM files with the"
+	echo "                          different certificates and keys seperated into single files"
+	echo "      --chain-for-key     Create the chain for the key (key needs to be provided in the files)"
+	echo "      --save-chain        Save the chain files as key, certificate and chain"
+	echo 
+	exit 1
 fi
 
 
@@ -122,7 +125,8 @@ do
 	FILE_BASENAME=`basename "$FILE"`
 
 	# if only one certificate in the file, copy it over
-	if [[ "$REPEAT_COUNT" -lt "0" ]]; then
+	if [[ "$REPEAT_COUNT" -lt "0" ]]
+	then
 		#echo "*** DBG: $FILE with $PART_COUNT parts ... copy"
 		cp "$FILE" "$TEMP_PATH/${FILE_BASENAME}_part00"
 		continue
@@ -143,13 +147,15 @@ done
 
 FLC=0
 KEY_LIST=''
-for FILE in $TEMP_PATH/*; do
+for FILE in $TEMP_PATH/*
+do
 	TYPE=`grep -h "\-\-\-\-\-BEGIN" "$FILE" | sed 's/^.* \([A-Z]*\).*$/\1/'`
 	mv "$FILE" "${FILE}-$TYPE"
 
 	# extract and store details for later
 	FILE_LIST[$FLC]="${FILE}-$TYPE"
-	if [[ "$TYPE" == "CERTIFICATE" ]]; then
+	if [[ "$TYPE" == "CERTIFICATE" ]]
+	then
 		FILE_TYPE[$FLC]='CERT'
 		FILE_PUB_KEY[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -modulus | openssl md5`
 		FILE_HASH[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -hash`
@@ -163,14 +169,15 @@ for FILE in $TEMP_PATH/*; do
 		FILE_DATE_START[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -startdate | sed 's/^notBefore= //'`
 		FILE_DATE_END[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -enddate | sed 's/^notAfter= //'`
 	else
-		if [[ "$TYPE" == "KEY" ]]; then
+		if [[ "$TYPE" == "KEY" ]]
+		then
 			KEY_TYPE=`grep -h "\-\-\-\-\-BEGIN" "${FILE}-$TYPE" | sed 's/^.* \([RD]SA\).*$/\1/' | tr '[:upper:]' '[:lower:]'`
 			FILE_TYPE[$FLC]='KEY'
 			FILE_PUB_KEY[$FLC]=`openssl $KEY_TYPE -in "${FILE}-$TYPE" -noout -modulus | openssl md5`
 			FILE_HASH[$FLC]='-'
 			FILE_ISSUER_HASH[$FLC]='-'
 			FILE_SUBJECT[$FLC]='-'
-			KEY_LIST="$KEY_LIST $FLC"
+			KEY_LIST="$KEY_LIST$FLC "
 		else
 			continue
 		fi
@@ -181,23 +188,30 @@ done
 echo " $FLC items found"
 
 # Find the child/parent relation between the certificates and match the keys
-for (( i = 0; i < $FLC; i++ )); do
-	if [[ "${FILE_TYPE[$i]}" == "CERT" ]]; then
+for (( i = 0; i < $FLC; i++ ))
+do
+	if [[ "${FILE_TYPE[$i]}" == "CERT" ]]
+	then
 		# Check if the certificate is self-signed
-		if [[ -z "${FILE_SIG_KEY_ID[$i]}" ]] || [[ "${FILE_SIG_KEY_ID[$i]}" == "${FILE_KEY_ID[$i]}" ]]; then
+		if [[ -z "${FILE_SIG_KEY_ID[$i]}" ]] || [[ "${FILE_SIG_KEY_ID[$i]}" == "${FILE_KEY_ID[$i]}" ]]
+		then
 			FILE_NOTICE[$i]="Self-Signed"
 			continue
 		fi
-		for (( a = 0; a < $FLC; a++ )); do
+		for (( a = 0; a < $FLC; a++ ))
+		do
 			# find matching issuer certificate
-			if [[ "${FILE_SIG_KEY_ID[$i]}" == "${FILE_KEY_ID[$a]}" ]] && [[ "${FILE_ISSUER_HASH[$i]}" == "${FILE_HASH[$a]}" ]]; then
+			if [[ "${FILE_SIG_KEY_ID[$i]}" == "${FILE_KEY_ID[$a]}" ]] && [[ "${FILE_ISSUER_HASH[$i]}" == "${FILE_HASH[$a]}" ]]
+			then
 				FILE_PARENT[$i]=$a;
 				FILE_CHILDS[$a]="${FILE_CHILDS[$a]}$i "
 			fi
 		done
 	fi
-	if [[ "${FILE_TYPE[$i]}" == "KEY" ]]; then
-		for (( j = 0; j < $FLC; j++ )); do
+	if [[ "${FILE_TYPE[$i]}" == "KEY" ]]
+	then
+		for (( j = 0; j < $FLC; j++ ))
+		do
 			if [[ "${FILE_PUB_KEY[$i]}" == "${FILE_PUB_KEY[$j]}" ]] && [[ "${FILE_TYPE[$j]}" == "CERT" ]]; then
 				KEY_ASSIGNMENT[$j]=$i;
 				FILE_PARENT[$i]=$j;
@@ -208,14 +222,16 @@ for (( i = 0; i < $FLC; i++ )); do
 done
 
 # Find the certificate(s) without parent certificate as well as self-signed
-for (( i = 0; i < $FLC; i++ )); do
+for (( i = 0; i < $FLC; i++ ))
+do
 	if [[ "${FILE_PARENT[$i]}" == "" ]] && [[ "${FILE_TYPE[$i]}" == "CERT" ]]; then
 		ROOT_LIST="$ROOT_LIST $i"
 	fi
 done
 
 
-#for (( i = 0; i < $FLC; i++ )); do
+#for (( i = 0; i < $FLC; i++ ))
+#do
 #	echo "*** DBG:  $i: ${FILE_LIST[$i]}"
 #	echo "*** DBG:               type: ${FILE_TYPE[$i]} ${FILE_NOTICE[$i]}"
 #	echo "*** DBG:            subject: ${FILE_SUBJECT[$i]}"
@@ -293,7 +309,7 @@ function print_chain_for_item()
 	local ITEM="$2"
 
 	# find the first parent 
-	ITEM_PARENT=${FILE_PARENT[$ITEM]}
+	ITEM_PARENT="${FILE_PARENT[$ITEM]}"
 
 	# start the certificate path for saving the certificate chain into a file
 	if [[ "${FILE_TYPE[$ITEM]}" == "CERT" ]]
@@ -338,12 +354,9 @@ function print_chain_for_item()
 	then
 		for j in $ITEM_PATH_SAVE
 		do
-			rm -f "$TEMP_PATH/result-chain.pem"
-			rm -f "$TEMP_PATH/result-cert.pem"
-			rm -f "$TEMP_PATH/result-key.pem"
-			cat "${FILE_LIST[$j]}" >>"$TEMP_PATH/result-chain.pem"
-			cat "${FILE_LIST[$ITEM_PATH_SAVE_CERT]}" >>"$TEMP_PATH/result-cert.pem"
-			cat "${FILE_LIST[$ITEM_PATH_SAVE_KEY]}" >>"$TEMP_PATH/result-key.pem"
+			cat "${FILE_LIST[$j]}" >>"$TEMP_PATH/result-$2-chain.pem"
+			cat "${FILE_LIST[$ITEM_PATH_SAVE_CERT]}" >>"$TEMP_PATH/result-$2-cert.pem"
+			cat "${FILE_LIST[$ITEM_PATH_SAVE_KEY]}" >>"$TEMP_PATH/result-$2-key.pem"
 		done
 	fi
 }
@@ -356,7 +369,8 @@ if [[ -z "$CHAIN_FOR_KEY" ]]
 then
 	print_certificates '' $ROOT_LIST
 else
-	for i in "$KEY_LIST"; do
+	for i in $KEY_LIST
+	do
 		echo "========================="
 		print_chain_for_item '' "$i"
 		echo "========================="

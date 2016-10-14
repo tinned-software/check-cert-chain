@@ -1,7 +1,8 @@
 #!/bin/bash
 
-PARAM_CONFIG=" -config openssl.cnf"
+PARAM_CONFIG="-config openssl.cnf"
 PARAM_KEY="-nodes"
+PARAM_SIGN=
 
 #
 # Create a self signes root certificate including a key (valid 10 years)
@@ -32,9 +33,10 @@ openssl req $PARAM_CONFIG -new -x509 -sha256 -newkey rsa:4096 -keyout root-key.p
 openssl req $PARAM_CONFIG -new -sha256 -newkey rsa:4096 -keyout intermediateA-key.pem $PARAM_KEY -out intermediateA-csr.pem -subj "/C=AT/O=Test Organisation/CN=TestCA intermediate A certificate"
 
 # Create the signed certificate from the CSR (8 years)
-openssl x509 -req -sha256 -CA root-cert.pem -CAkey root-key.pem  -days 2920 -out intermediateA-cert.pem -in intermediateA-csr.pem -CAcreateserial
+openssl ca -batch -cert root-cert.pem -keyfile root-key.pem $PARAM_CONFIG -extensions v3_ca -days 2920 -out intermediateA-cert.pem -in intermediateA-csr.pem
 
 
+exit 0
 
 
 #
@@ -45,7 +47,7 @@ openssl x509 -req -sha256 -CA root-cert.pem -CAkey root-key.pem  -days 2920 -out
 openssl req $PARAM_CONFIG -new -sha256 -newkey rsa:4096 -keyout intermediateB-key.pem $PARAM_KEY -out intermediateB-csr.pem -subj "/C=AT/O=Test Organisation/CN=TestCA intermediate B certificate"
 
 # Create the signed certificate from the CSR (6 years)
-openssl x509 -req -sha256 -CA intermediateA-cert.pem -CAkey intermediateA-key.pem -extensions v3_ca -days 2190 -out intermediateB-cert.pem -in intermediateB-csr.pem -CAcreateserial
+openssl x509 -req -sha256 -CA intermediateA-cert.pem -CAkey intermediateA-key.pem $PARAM_CONFIG -extensions v3_ca -days 2190 -out intermediateB-cert.pem -in intermediateB-csr.pem -CAcreateserial
 
 
 #
@@ -71,4 +73,13 @@ openssl x509 -req -sha256 -CA intermediateB-cert.pem -CAkey intermediateB-key.pe
 
 
 # XXXXX
+
+
+
+
+
+
+
+
+
 
