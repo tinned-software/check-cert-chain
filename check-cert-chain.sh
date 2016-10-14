@@ -52,6 +52,7 @@ do
 
 		-d)
 			DETAILS=1
+			shift 1
 			;;
 
 		# Unnamed parameter        
@@ -118,7 +119,7 @@ rm -f $TEMP_PATH/*
 
 # for each file do
 echo 
-if [[ $DETAILS -ge 1 ]]; then echo -n "*** Splitting up files into certificates and keys ... "; fi
+if [[ $DETAILS -ge 1 ]]; then echo "*** Splitting up files into certificates and keys ... "; fi
 for FILE in $INPUT_FILE_LIST
 do
 	# Get the number of parts in this file
@@ -138,7 +139,7 @@ do
 	fi
 
 	# OS specific parameters to execurte csplit
-	#echo "*** DBG: $FILE with $PART_COUNT parts ... csplit ($DETECTED_OS_TYPE)"
+	if [[ $DETAILS -ge 1 ]]; then echo "*** DBG: $FILE with $PART_COUNT parts ... csplit ($DETECTED_OS_TYPE)" ; fi
 	case $DETECTED_OS_TYPE in 
 		Linux)
 			csplit --elide-empty-files -s -f $TEMP_PATH/${FILE_BASENAME}_part $FILE '/-----BEGIN/' '{*}'
