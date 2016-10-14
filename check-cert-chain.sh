@@ -2,7 +2,7 @@
 #
 # @author Gerhard Steinbeis (info [at] tinned-software [dot] net)
 # @copyright Copyright (c) 2014
-version=0.1.0
+version=0.1.1
 # @license http://opensource.org/licenses/GPL-3.0 GNU General Public License, version 3
 # @package monitoring
 #
@@ -15,6 +15,7 @@ SCRIPT_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 #
 INPUT_FILE_LIST=''
 HELP=0
+DETAILS=0
 while [ $# -gt 0 ]
 do
 	case $1 in
@@ -49,6 +50,10 @@ do
 			shift 1
 			;;
 
+		-d)
+			DETAILS=1
+			;;
+
 		# Unnamed parameter        
 		*)
 			if [[ -f $1 ]]
@@ -72,8 +77,8 @@ then
 fi
 if [ "$TEMP_PATH" == "" ]
 then
-	echo "The parameter --cert-path is missing."
-	HELP=1
+	TEMP_PATH=$(mktemp -d)
+	echo "The temp-path is not specified, temp-path created as $TEMP_PATH."
 fi
 
 
@@ -94,6 +99,7 @@ then
 	echo "                          different certificates and keys seperated into single files"
 	echo "      --chain-for-key     Create the chain for the key (key needs to be provided in the files)"
 	echo "      --save-chain        Save the chain files as key, certificate and chain"
+	echo "  -d                      Show more details about the certificate chain"
 	echo 
 	exit 1
 fi
@@ -112,14 +118,13 @@ rm -f $TEMP_PATH/*
 
 # for each file do
 echo 
-echo -n "*** Splitting up files into certificates and keys ..."
+if [[ $DETAILS -ge 1 ]]; then echo -n "*** Splitting up files into certificates and keys ... "; fi
 for FILE in $INPUT_FILE_LIST
 do
 	# Get the number of parts in this file
 	PART_COUNT=`grep "\-\-\-\-\-BEGIN" ${FILE} | wc -l`
 	# get the repeat value for the csplit lcommand
 	REPEAT_COUNT=$((PART_COUNT - 2))
-	
 
 	# get the basename of the certificate file
 	FILE_BASENAME=`basename "$FILE"`
@@ -151,29 +156,30 @@ for FILE in $TEMP_PATH/*
 do
 	TYPE=`grep -h "\-\-\-\-\-BEGIN" "$FILE" | sed 's/^.* \([A-Z]*\).*$/\1/'`
 	mv "$FILE" "${FILE}-$TYPE"
+	#echo "*** DBG: file=$FILE with type=$TYPE ... "
 
 	# extract and store details for later
 	FILE_LIST[$FLC]="${FILE}-$TYPE"
 	if [[ "$TYPE" == "CERTIFICATE" ]]
 	then
 		FILE_TYPE[$FLC]='CERT'
-		FILE_PUB_KEY[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -modulus | openssl md5`
-		FILE_HASH[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -hash`
-		FILE_ISSUER_HASH[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -issuer_hash`
-		FILE_SIG_KEY_ID[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -text |grep -A1 "Authority Key Identifier" |grep -v X509 |sed -e 's/^.*keyid://'`
-		FILE_KEY_ID[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -text |grep -A1 "Subject Key Identifier" |grep -v X509 |sed -e 's/^ *//'`
-		FILE_SUBJECT[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -subject | sed 's/^subject= //'`
-		FILE_ISSUER[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -issuer | sed 's/^issuer= //'`
-		FILE_FINGERPRINT[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -fingerprint`
-		FILE_SERIAL[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -serial | sed 's/^serial= //'`
-		FILE_DATE_START[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -startdate | sed 's/^notBefore= //'`
-		FILE_DATE_END[$FLC]=`openssl x509 -in "${FILE}-$TYPE" -noout -enddate | sed 's/^notAfter= //'`
+		FILE_PUB_KEY[$FLC]=$(openssl x509 -in "${FILE}-$TYPE" -noout -modulus  2>/dev/null | openssl md5 )
+		FILE_HASH[$FLC]=$(openssl x509 -in "${FILE}-$TYPE" -noout -hash 2>/dev/null )
+		FILE_ISSUER_HASH[$FLC]=$(openssl x509 -in "${FILE}-$TYPE" -noout -issuer_hash 2>/dev/null )
+		FILE_SIG_KEY_ID[$FLC]=$(openssl x509 -in "${FILE}-$TYPE" -noout -text 2>/dev/null | grep -A1 "Authority Key Identifier" |grep -v X509 |sed -e 's/^.*keyid://' )
+		FILE_KEY_ID[$FLC]=$(openssl x509 -in "${FILE}-$TYPE" -noout -text 2>/dev/null | grep -A1 "Subject Key Identifier" | grep -v X509 | sed -e 's/^ *//' )
+		FILE_SUBJECT[$FLC]=$(openssl x509 -in "${FILE}-$TYPE" -noout -subject 2>/dev/null | sed 's/^subject= //' )
+		FILE_ISSUER[$FLC]=$(openssl x509 -in "${FILE}-$TYPE" -noout -issuer 2>/dev/null | sed 's/^issuer= //' )
+		FILE_FINGERPRINT[$FLC]=$(openssl x509 -in "${FILE}-$TYPE" -noout -fingerprint 2>/dev/null)
+		FILE_SERIAL[$FLC]=$(openssl x509 -in "${FILE}-$TYPE" -noout -serial 2>/dev/null | sed 's/^serial= //' )
+		FILE_DATE_START[$FLC]=$(openssl x509 -in "${FILE}-$TYPE" -noout -startdate 2>/dev/null | sed 's/^notBefore= //' )
+		FILE_DATE_END[$FLC]=$(openssl x509 -in "${FILE}-$TYPE" -noout -enddate 2>/dev/null | sed 's/^notAfter= //' )
 	else
 		if [[ "$TYPE" == "KEY" ]]
 		then
 			KEY_TYPE=`grep -h "\-\-\-\-\-BEGIN" "${FILE}-$TYPE" | sed 's/^.* \([RD]SA\).*$/\1/' | tr '[:upper:]' '[:lower:]'`
 			FILE_TYPE[$FLC]='KEY'
-			FILE_PUB_KEY[$FLC]=`openssl $KEY_TYPE -in "${FILE}-$TYPE" -noout -modulus | openssl md5`
+			FILE_PUB_KEY[$FLC]=$(openssl $KEY_TYPE -in "${FILE}-$TYPE" -noout -modulus 2>/dev/null | openssl md5 )
 			FILE_HASH[$FLC]='-'
 			FILE_ISSUER_HASH[$FLC]='-'
 			FILE_SUBJECT[$FLC]='-'
@@ -185,7 +191,7 @@ do
 
 	FLC=$((FLC + 1))
 done
-echo " $FLC items found"
+#echo " $FLC items found"
 
 # Find the child/parent relation between the certificates and match the keys
 for (( i = 0; i < $FLC; i++ ))
@@ -264,13 +270,13 @@ function print_certificate_details()
 	then
 		echo "${INTEND}Certificate file          : ${FILE_LIST[$k]} (internal-id: $k)"
 		echo "${INTEND}Certificate subject       : ${FILE_SUBJECT[$k]} (hash: ${FILE_HASH[$k]})"
-		echo "${INTEND}Certificate serial        : ${FILE_SERIAL[$k]} "
-		echo "${INTEND}Certificate Key Identifier: ${FILE_KEY_ID[$k]}"
-		echo "${INTEND}Certificate Key hash      : ${FILE_PUB_KEY[$k]}"
+		if [[ $DETAILS -ge 1 ]]; then echo "${INTEND}Certificate serial        : ${FILE_SERIAL[$k]} " ; fi
+		if [[ $DETAILS -ge 1 ]]; then echo "${INTEND}Certificate Key Identifier: ${FILE_KEY_ID[$k]}" ; fi
+		if [[ $DETAILS -ge 1 ]]; then echo "${INTEND}Certificate Key hash      : ${FILE_PUB_KEY[$k]}" ; fi
 		echo "${INTEND}Issuer Subject            : ${FILE_ISSUER[$k]} (issuer hash: ${FILE_ISSUER_HASH[$k]})"
-		echo "${INTEND}Issuer Key Identifier     : ${FILE_SIG_KEY_ID[$k]}"
-		echo "${INTEND}Parent item in chain      : ${FILE_PARENT[$k]}"
-		echo "${INTEND}Child item in chain       : ${FILE_CHILDS[$k]}"
+		if [[ $DETAILS -ge 1 ]]; then echo "${INTEND}Issuer Key Identifier     : ${FILE_SIG_KEY_ID[$k]}" ; fi
+		if [[ $DETAILS -ge 1 ]]; then echo "${INTEND}Parent item in chain      : ${FILE_PARENT[$k]}" ; fi
+		if [[ $DETAILS -ge 1 ]]; then echo "${INTEND}Child item in chain       : ${FILE_CHILDS[$k]}" ; fi
 	fi
 
 	if [[ "${FILE_TYPE[$k]}" == "KEY" ]]
